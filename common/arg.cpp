@@ -2688,7 +2688,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
                 throw std::invalid_argument("RPC not supported in this build");
             }
             add_rpc_devices(value);
-            GGML_UNUSED(params);
+            params.rpc_servers += (params.rpc_servers.empty() ? "" : ",") + value;
         }
     ).set_env("LLAMA_ARG_RPC"));
     add_opt(common_arg(
