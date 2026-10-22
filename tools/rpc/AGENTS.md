@@ -13,10 +13,16 @@ Pool GPUs across machines with the ggml RPC backend.
 ## Files
 
 - `install-rpc.ps1 -Role Host|Master` builds and sets up. Windows PowerShell 5.1 compatible.
-  - Host: builds `ggml-rpc-server`, creates firewall rule `llama.cpp RPC server` (TCP, local subnet only, needs Administrator), `-Start` runs it.
-  - Master: builds `llama-server` and `llama-cli`, `-Hosts ip:port,...` does a TCP reachability check.
+  - Host: builds `ggml-rpc-server`, creates firewall rules `llama.cpp RPC server` (TCP 50052) and `llama.cpp RPC stats` (TCP 50053), both local subnet only, needs Administrator. `-Start` runs the server.
+  - Master: builds `llama-server` and `llama-cli`, `-Hosts ip:port,...` does a TCP reachability check, `-BuildUi` builds the Web UI from source (`-DLLAMA_BUILD_UI=ON -DLLAMA_USE_PREBUILT_UI=OFF`; stops if `tools/ui/dist` exists, since it would be embedded instead).
   - Build dirs: `<repo>/build-rpc-host`, `<repo>/build-rpc-master` (gitignored by `/build*`).
-- `start-rpc-server.ps1` starts the host server later (`-Port -BindAddress -Device -Cache`).
+- `start-rpc-server.ps1` starts the host server and its stats agent (`-Port -StatsPort -BindAddress -Device -Cache -NoAgent`).
+- `stats-agent.ps1` serves `GET /stats` JSON on port 50053 (nvidia-smi GPUs, CPU, RAM, NIC rates, RPC server state). A background runspace samples every 0.5 s, requests read the latest JSON.
+- `start-master.ps1` starts `llama-server` in router mode: `--models-dir --models-preset models.ini --models-max 1 --rpc <hosts> --metrics`, port 9931. It checks that every host is reachable first.
+- `add-model.ps1` copies or downloads (`curl.exe`) a `.gguf` into the models folder, then calls `GET /models?reload=1`.
+- `models.ini` is the router preset file (`[*]` defaults, per-model sections, `alias`, `tensor-split`, `model-draft`).
+- Server side: `tools/server/server-rpc-stats.cpp` implements `GET /rpc/stats`; `common_params::rpc_servers` keeps the raw `--rpc` string (set in `common/arg.cpp`).
+- UI side (`tools/ui`): routes `src/routes/rpc` and `src/routes/models`, store `src/lib/stores/rpc.svelte.ts`, service `src/lib/services/rpc.service.ts`, components `src/lib/components/app/rpc/`, helpers and tests `src/lib/utils/rpc-stats.ts`, `tests/unit/rpc-stats.test.ts`. The sidebar entries are in `src/lib/constants/ui.constants.ts`.
 - Host needs: Git, Visual Studio with C++ workload and CMake tools, CUDA toolkit, NVIDIA driver.
 
 ## Facts about the server (`rpc-server.cpp`)
@@ -49,10 +55,30 @@ These were all real failures. A new host script must handle the same ones.
 - `-Role Host`: full build OK (CUDA 13.1, arch 120a, MSVC 14.50 with the override). Server started on `127.0.0.1`, detected `CUDA0: NVIDIA GeForce RTX 5090`, accepted a TCP client.
 - `-Role Master`: full build OK, `llama-server --help` lists `--rpc` and `-sm {none,layer,row,tensor}`. Reachability check correctly reported a dead host.
 
+- Two real hosts (RTX 4090 at 192.168.1.15, 3x RTX 2080 Ti at 192.168.1.44) were reachable from the master on 50052.
+- `GET /rpc/stats` on a router: 401 without the API key, 200 with it, master agent reachable, hosts with the old scripts reported `reachable:false` without stalling or crashing. UI built from source: svelte-check 0 errors, 730 unit tests pass (14 new).
+- The router (`start-master.ps1`) started against both hosts and listed the LM Studio models folder read-only.
+
+## Router mode and the single-client RPC server
+
+- `ggml-rpc-server` serves one client at a time (`ggml-rpc.cpp` accept loop, listen backlog 1). A loaded model's child process keeps its connection to every host, so two models on the same hosts would hang the second. Hence `--models-max 1`: loading B evicts A (LRU) first, up to the 10 s stop-timeout.
+- The router connects to the hosts briefly at startup, then closes. A host held by another client makes the router hang, a host that is down makes it abort.
+- Router children inherit `--rpc` and the environment. `--sleep-idle-seconds` is risky with RPC (a failed wake-up aborts).
+- Never call `ggml_backend_dev_memory` from an HTTP handler: it round-trips to the host and aborts the process when the host is down. Remote stats come from the HTTP agent instead.
+
+## Gotchas found while testing
+
+- Port 8080 on the master belongs to NVIDIA's Personal AI Router (`nvpair-proxy.exe`, restarted by `PAIR.exe`); this fork's server default port is 9931.
+- The embedded UI is gzipped: `curl` without `--compressed` gets `415 gzip is not supported by this browser`.
+- `$PSScriptRoot` in a `param()` default came up empty when the script was started with `Start-Process powershell -File`; compute such defaults in the script body.
+- The Claude-in-Chrome extension could not load `http://127.0.0.1:9931` here (error page, even for `/health`) while `curl` could, so the UI was never viewed in that browser.
+
 ## Not verified
 
+- The RPC and Models tabs visually (see above), and loading a model through the router across the pool.
+- The stats agent on the real hosts (they ran the old scripts when tested).
 - Firewall rule creation (needs an elevated shell).
-- A real run across two machines, and `-sm tensor` over TCP (docs say tensor split is interconnect bound, expect it to be slower than `layer` on 10GbE).
+- `-sm tensor` over TCP (docs say tensor split is interconnect bound, expect it to be slower than `layer` on 10GbE).
 - Any host that is not Windows + NVIDIA CUDA.
 
 ## Adapting for a different host
