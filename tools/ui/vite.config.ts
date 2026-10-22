@@ -61,8 +61,10 @@ export default defineConfig(({ mode }) => {
 			},
 			proxy: {
 				'/cors-proxy': SERVER_ORIGIN,
+				'/metrics': SERVER_ORIGIN,
 				'/models': SERVER_ORIGIN,
 				'/props': SERVER_ORIGIN,
+				'/rpc': SERVER_ORIGIN,
 				'/slots': SERVER_ORIGIN,
 				'/tools': SERVER_ORIGIN,
 				'/v1': SERVER_ORIGIN

@@ -46,6 +46,9 @@ export { modelsDiscoverStore } from './models-discover/index.svelte';
 // SERVER
 export { serverStore } from './server.svelte';
 
+// RPC POOL (live machine stats of the RPC tab)
+export { rpcStore } from './rpc.svelte';
+
 // UI / LAYOUT
 export { uiStore } from './ui.svelte';
 

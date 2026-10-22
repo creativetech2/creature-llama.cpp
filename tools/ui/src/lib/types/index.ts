@@ -35,6 +35,17 @@ export type {
 	ApiStreamSession
 } from './api';
 
+// RPC pool monitoring types
+export type {
+	RpcGpuStats,
+	RpcHostEntry,
+	RpcHostStats,
+	RpcMetrics,
+	RpcModelDetail,
+	RpcNetStats,
+	RpcStatsResponse
+} from './rpc';
+
 // HuggingFace types
 export type {
 	HfCatalogBuild,

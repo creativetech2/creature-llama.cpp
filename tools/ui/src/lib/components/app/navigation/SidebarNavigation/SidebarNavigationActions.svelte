@@ -47,9 +47,7 @@
 
 	// the models manager stays desktop-only: a phone picks its models in the selector
 	const actions = $derived(
-		SIDEBAR_ACTIONS_ITEMS.filter(
-			(item) => item.action !== SidebarAction.MANAGE_MODELS || !deviceStore.isMobile
-		)
+		SIDEBAR_ACTIONS_ITEMS.filter((item) => item.route !== ROUTES.MODELS || !deviceStore.isMobile)
 	);
 	let initialized = $state(false);
 	let showIcons = $state(false);

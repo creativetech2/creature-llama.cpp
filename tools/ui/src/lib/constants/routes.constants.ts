@@ -13,6 +13,10 @@ export const ROUTES = {
 	CHAT: '#/chat',
 	/** MCP servers. */
 	MCP_SERVERS: '#/mcp-servers',
+	/** Models of the pool: load, unload and rescan. */
+	MODELS: '#/models',
+	/** RPC pool monitor: machines, GPUs and what is running. */
+	RPC: '#/rpc',
 	/** Search — mobile-only full-page conversation search. */
 	SEARCH: '#/search',
 	/** Root — start of the app. */
