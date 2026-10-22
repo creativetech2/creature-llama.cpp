@@ -14,6 +14,7 @@ Build llama.cpp RPC on Windows with NVIDIA CUDA.
 param(
     [Parameter(Mandatory)][ValidateSet('Host', 'Master')][string]$Role,
     [int]$Port = 50052,
+    [int]$StatsPort = 50053,
     [string]$BindAddress = '0.0.0.0',
     [string]$CudaPath,
     [string]$CudaArch,
@@ -21,6 +22,7 @@ param(
     [switch]$Cache,
     [switch]$SkipFirewall,
     [switch]$Start,
+    [switch]$BuildUi,
     [switch]$Clean
 )
 
@@ -113,6 +115,11 @@ $cmakeArgs = @(
     "-DCUDAToolkit_ROOT=$CudaPath"
 )
 if ($cudaFlags) { $cmakeArgs += "-DCMAKE_CUDA_FLAGS=$cudaFlags" }
+if ($BuildUi) {
+    # tools/ui/dist wins over the npm build and the prebuilt download has no RPC/Models tabs
+    if (Test-Path (Join-Path $root 'tools\ui\dist')) { throw 'tools\ui\dist exists and would be embedded instead of a fresh UI build. Delete it first.' }
+    $cmakeArgs += '-DLLAMA_BUILD_UI=ON', '-DLLAMA_USE_PREBUILT_UI=OFF'
+}
 [string[]]$targets = if ($Role -eq 'Host') { 'ggml-rpc-server' } else { 'llama-server', 'llama-cli' }
 
 # PowerShell 5.1 turns native stderr into errors when redirected, so rely on exit codes
@@ -139,24 +146,26 @@ if ($Role -eq 'Host') {
     $exe = Join-Path $binDir 'ggml-rpc-server.exe'
     $ruleName = 'llama.cpp RPC server'
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    $ruleCmd = "New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -RemoteAddress LocalSubnet -Program '$exe'"
+    $statsRuleName = 'llama.cpp RPC stats'
+    $ruleCmds = @(
+        "New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -RemoteAddress LocalSubnet -Program '$exe'",
+        "New-NetFirewallRule -DisplayName '$statsRuleName' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $StatsPort -RemoteAddress LocalSubnet"
+    )
     if ($SkipFirewall) {
-        Write-Host 'Skipping firewall rule'
+        Write-Host 'Skipping firewall rules'
     } elseif ($isAdmin) {
-        Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-        Invoke-Expression $ruleCmd | Out-Null
-        Write-Host "Firewall: allowed TCP $Port from the local subnet"
+        Get-NetFirewallRule -DisplayName $ruleName, $statsRuleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+        foreach ($cmd in $ruleCmds) { Invoke-Expression $cmd | Out-Null }
+        Write-Host "Firewall: allowed TCP $Port and $StatsPort from the local subnet"
     } else {
-        Write-Warning "Not elevated, firewall rule not created. Run this once in an Administrator PowerShell:`n  $ruleCmd"
+        Write-Warning "Not elevated, firewall rules not created. Run this once in an Administrator PowerShell:`n  $($ruleCmds -join "`n  ")"
     }
 
     Write-Host "`nBuilt $exe"
     Write-Host "Host addresses (use one in the master's --rpc): $($lanIps -join ', ')"
     Write-Host "Start later with: .\start-rpc-server.ps1 -Port $Port$(if ($Cache) { ' -Cache' })"
     if ($Start) {
-        $serverArgs = @('-H', $BindAddress, '-p', $Port)
-        if ($Cache) { $serverArgs += '-c' }
-        & $exe @serverArgs
+        & (Join-Path $PSScriptRoot 'start-rpc-server.ps1') -Port $Port -StatsPort $StatsPort -BindAddress $BindAddress -Cache:$Cache
     }
 } else {
     $failed = $false
@@ -174,5 +183,6 @@ if ($Role -eq 'Host') {
 
     $rpc = if ($Hosts) { $Hosts -join ',' } else { '<host1>:50052,<host2>:50052' }
     Write-Host "`nBuilt llama-server and llama-cli in $binDir"
-    Write-Host "Run: $binDir\llama-server.exe -m <model.gguf> -ngl 99 --rpc $rpc"
+    Write-Host "Run: .\start-master.ps1 -Hosts $rpc"
+    Write-Host "Or a single model: $binDir\llama-server.exe -m <model.gguf> -ngl 99 --rpc $rpc"
 }
