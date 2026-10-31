@@ -115,6 +115,9 @@ $cmakeArgs = @(
     "-DCUDAToolkit_ROOT=$CudaPath"
 )
 if ($cudaFlags) { $cmakeArgs += "-DCMAKE_CUDA_FLAGS=$cudaFlags" }
+# HTTPS (model downloads from the Web UI) needs OpenSSL, winget id ShiningLight.OpenSSL.Dev
+$openssl = Join-Path $env:ProgramFiles 'OpenSSL-Win64'
+if (Test-Path (Join-Path $openssl 'include\openssl\ssl.h')) { $cmakeArgs += "-DOPENSSL_ROOT_DIR=$openssl" }
 if ($BuildUi) {
     # tools/ui/dist wins over the npm build and the prebuilt download has no RPC/Models tabs
     if (Test-Path (Join-Path $root 'tools\ui\dist')) { throw 'tools\ui\dist exists and would be embedded instead of a fresh UI build. Delete it first.' }
@@ -136,6 +139,10 @@ foreach ($dir in 'bin', 'bin\x64') {
     foreach ($pattern in 'cudart64_*.dll', 'cublas64_*.dll', 'cublasLt64_*.dll') {
         Get-ChildItem (Join-Path $CudaPath $dir) -Filter $pattern -ErrorAction SilentlyContinue | Copy-Item -Destination $binDir -Force
     }
+}
+
+if (Test-Path $openssl) {
+    Get-ChildItem (Join-Path $openssl 'bin') -Filter 'lib*.dll' | Where-Object { $_.Name -match '^lib(ssl|crypto)-' } | Copy-Item -Destination $binDir -Force
 }
 
 $lanIps = Get-NetIPAddress -AddressFamily IPv4 |
@@ -169,7 +176,7 @@ if ($Role -eq 'Host') {
     }
 } else {
     $failed = $false
-    foreach ($endpoint in $Hosts) {
+    foreach ($endpoint in ($Hosts | ForEach-Object { $_ -split ',' } | Where-Object { $_ })) {
         $name, $p = $endpoint -split ':'
         if (-not $p) { $p = 50052 }
         $client = New-Object Net.Sockets.TcpClient
