@@ -2,7 +2,8 @@
 	import { RefreshCw } from '@lucide/svelte';
 	import ModelsManager from '$lib/components/app/models/ModelsManager/ModelsManager.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { modelsStore, serverStore } from '$lib/stores';
+	import { DISCOVER_ICON, SETTINGS_KEYS } from '$lib/constants';
+	import { modelsStore, serverStore, settingsStore, uiStore } from '$lib/stores';
 	import { apiFetch } from '$lib/utils';
 	import { onMount } from 'svelte';
 
@@ -12,6 +13,18 @@
 	onMount(() => {
 		void modelsStore.fetchRouterModels();
 	});
+
+	/** Discover is off by default and needs the hub setting, so turn both on before opening it. */
+	function openDiscover() {
+		if (!settingsStore.getConfig(SETTINGS_KEYS.ENABLE_DISCOVER_MODELS)) {
+			settingsStore.updateMultipleConfig({
+				[SETTINGS_KEYS.ENABLE_DISCOVER_MODELS]: true,
+				[SETTINGS_KEYS.USE_HUGGING_FACE_HUB]: true
+			});
+		}
+
+		uiStore.openModelsDiscover();
+	}
 
 	/** The router re-reads its models folder and preset file on GET /models?reload=1. */
 	async function rescan() {
@@ -54,6 +67,12 @@
 	<ModelsManager class="min-h-0 flex-1">
 		{#snippet toolbarEnd()}
 			{#if serverStore.isRouterMode}
+				<Button class="gap-1.5" onclick={openDiscover} size="sm" variant="tertiary">
+					<DISCOVER_ICON class="h-3.5 w-3.5" />
+
+					Discover Models
+				</Button>
+
 				<Button
 					class="gap-1.5"
 					disabled={isRescanning}
