@@ -183,7 +183,7 @@ Both copy the file and tell a running router to rescan. Models load on the first
 With the UI built from source (`-BuildUi`), the sidebar has two extra entries:
 
 - **RPC**: one card per machine (the master and each `--rpc` host) with GPU load, VRAM, temperature and power per GPU, a short history graph, CPU, RAM and network use, and whether the host's RPC server is idle or serving a client. A "Now running" panel lists the loaded models with busy slots, prompt and generation speed (needs `--metrics`, which `start-master.ps1` sets) and queued requests.
-- **Models**: the model manager as a page. Load and unload models and watch their status. "Rescan folder" re-reads the models folder and `models.ini` after you add or edit files.
+- **Models**: the model manager as a page. Load and unload models and watch their status. "Discover Models" searches Hugging Face and downloads a GGUF into the models folder (needs OpenSSL, see below); it turns on the "Enable Discover Models" setting the first time. "Rescan folder" re-reads the models folder and `models.ini` after you add or edit files.
 
 The RPC tab reads `GET /rpc/stats`, a `llama-server` endpoint that polls the stats agent of the master and of every `--rpc` host (port 50053, or `LLAMA_RPC_STATS_PORT`) in parallel. A host whose agent does not answer shows as "Agent offline" and the rest still update. The endpoint respects `--api-key`. It does not query the RPC devices themselves, because a down host would abort `llama-server`.
 
@@ -203,7 +203,7 @@ Both host ports are opened for the local subnet only. Neither the RPC server nor
 - **Hosts must be up before the router starts.** `llama-server` aborts at startup if an `--rpc` host is down. `start-master.ps1` checks each host first and stops with a clear message.
 - **Visual Studio 2026.** CUDA 12.8, 13.0 and 13.1 reject its compiler (MSVC 14.50). The install script uses an older MSVC toolset when one is installed. Otherwise it builds with `-allow-unsupported-compiler`, which compiled the full backend fine here. Installing "MSVC v143 - VS 2022 C++ x64/x86 build tools" avoids the warning.
 - **CUDA version.** The script ignores `CUDA_PATH` and picks an installed toolkit that fits the GPU: compute capability 10 and newer (RTX 50 series) needs CUDA 12.8 or newer, and capability below 7.5 needs a CUDA 12.x toolkit.
-- **No HTTPS in the build** unless OpenSSL is installed, so `-hf` downloads do not work. Use `add-model.ps1`, which downloads with `curl.exe`.
+- **HTTPS needs OpenSSL on the master.** Without it, `-hf` and the Discover download fail. Install it with `winget install ShiningLight.OpenSSL.Dev` (default folder `C:\Program Files\OpenSSL-Win64`) before `install-rpc.ps1 -Role Master`; the script then links it and copies `libssl` and `libcrypto` next to the exes. If the master was built earlier, run the script again. `add-model.ps1` downloads with `curl.exe` and works either way. Hosts do not need OpenSSL.
 - **`curl` and the UI.** The Web UI assets are served gzipped, so `curl` needs `--compressed` to fetch `/`. Browsers send the header themselves.
 - **Rebuilding the UI.** The first `-BuildUi` build runs `npm ci` and needs internet. A leftover `tools/ui/dist` folder would be embedded instead of a fresh build, so the script stops if it exists.
 - **Speed.** The default layer split pools memory, it does not add speed: tokens pass through the GPUs one after another, and the slowest GPU sets the pace. See `docs/multi-gpu.md` for the split modes.

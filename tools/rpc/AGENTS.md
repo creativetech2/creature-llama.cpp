@@ -22,7 +22,7 @@ Pool GPUs across machines with the ggml RPC backend.
 - `add-model.ps1` copies or downloads (`curl.exe`) a `.gguf` into the models folder, then calls `GET /models?reload=1`.
 - `models.ini` is the router preset file (`[*]` defaults, per-model sections, `alias`, `tensor-split`, `model-draft`).
 - Server side: `tools/server/server-rpc-stats.cpp` implements `GET /rpc/stats`; `common_params::rpc_servers` keeps the raw `--rpc` string (set in `common/arg.cpp`).
-- UI side (`tools/ui`): routes `src/routes/rpc` and `src/routes/models`, store `src/lib/stores/rpc.svelte.ts`, service `src/lib/services/rpc.service.ts`, components `src/lib/components/app/rpc/`, helpers and tests `src/lib/utils/rpc-stats.ts`, `tests/unit/rpc-stats.test.ts`. The sidebar entries are in `src/lib/constants/ui.constants.ts`.
+- UI side (`tools/ui`): the Models page adds a Discover Models button that enables the upstream `enableDiscoverModels` and `useHuggingFaceHub` settings (off by default) and opens the Discover view. Routes `src/routes/rpc` and `src/routes/models`, store `src/lib/stores/rpc.svelte.ts`, service `src/lib/services/rpc.service.ts`, components `src/lib/components/app/rpc/`, helpers and tests `src/lib/utils/rpc-stats.ts`, `tests/unit/rpc-stats.test.ts`. The sidebar entries are in `src/lib/constants/ui.constants.ts`.
 - Host needs: Git, Visual Studio with C++ workload and CMake tools, CUDA toolkit, NVIDIA driver.
 
 ## Facts about the server (`rpc-server.cpp`)
@@ -48,7 +48,7 @@ These were all real failures. A new host script must handle the same ones.
 7. **A one-element `if` result collapses to a string**, which broke `--target @targets`. Use `[string[]]$targets` and `--target $targets`.
 8. **CMake cannot switch compilers in an existing build tree.** The script deletes the build dir if the cached `CMAKE_CUDA_COMPILER` differs. `-Clean` forces it.
 9. **Ninja resumes** after an interrupted build, so re-running the script is safe.
-10. OpenSSL is not installed, so HTTPS is disabled (CMake only warns). `-hf` downloads fail, use local `.gguf` files. Not needed on hosts.
+10. **Without OpenSSL, HTTPS is disabled** (CMake only warns), so `-hf` and the UI Discover download fail. The script passes `-DOPENSSL_ROOT_DIR` when `C:\Program Files\OpenSSL-Win64` has headers (winget id `ShiningLight.OpenSSL.Dev`, 4.1.0 built fine) and copies `libssl-*.dll` and `libcrypto-*.dll` to `bin`. Not needed on hosts.
 
 ## Verified (2026-10-22, master machine)
 
@@ -76,6 +76,7 @@ These were all real failures. A new host script must handle the same ones.
 ## Not verified
 
 - The RPC and Models tabs visually (see above), and loading a model through the router across the pool.
+- A real Hugging Face download from Discover with the OpenSSL build. The Discover Models button on the Models tab (`routes/models/+page.svelte`) only passed svelte-check and a rebuild.
 - The stats agent on the real hosts (they ran the old scripts when tested).
 - Firewall rule creation (needs an elevated shell).
 - `-sm tensor` over TCP (docs say tensor split is interconnect bound, expect it to be slower than `layer` on 10GbE).
