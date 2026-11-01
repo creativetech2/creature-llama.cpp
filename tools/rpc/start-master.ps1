@@ -14,6 +14,7 @@ param(
     [Parameter(Mandatory)][string[]]$Hosts,
     [string]$ModelsDir = (Join-Path $env:USERPROFILE 'llama-models'),
     [string]$Preset,
+    [string]$McpConfig,
     [string]$ApiKey,
     [int]$Port = 9931,
     [int]$StatsPort = 50053,
@@ -24,6 +25,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if (-not $Preset) { $Preset = Join-Path $PSScriptRoot 'models.ini' }
+if (-not $McpConfig) { $McpConfig = Join-Path $PSScriptRoot 'mcp.json' }
 $exe = Join-Path $PSScriptRoot '..\..\build-rpc-master\bin\llama-server.exe'
 if (-not (Test-Path $exe)) { throw 'Not built yet. Run .\install-rpc.ps1 -Role Master -BuildUi first.' }
 
@@ -43,6 +45,7 @@ New-Item -ItemType Directory -Force $ModelsDir | Out-Null
 
 $serverArgs = @('--models-dir', $ModelsDir, '--models-max', 1, '--rpc', ($rpcHosts -join ','), '--metrics', '--host', $BindAddress, '--port', $Port)
 if (Test-Path $Preset) { $serverArgs += '--models-preset', $Preset }
+if (Test-Path $McpConfig) { $serverArgs += '--mcp-servers-config', $McpConfig }
 if ($ApiKey) { $serverArgs += '--api-key', $ApiKey }
 
 # the /rpc/stats endpoint reads the agent port from this variable

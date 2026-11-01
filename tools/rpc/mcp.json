@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "comfy": {
+      "command": "C:/Users/BEAST-II/AppData/Roaming/Python/Python313/Scripts/comfy-mcp.exe",
+      "env": { "COMFY_BIN": "C:/Users/BEAST-II/AppData/Roaming/Python/Python313/Scripts/comfy.exe" },
+      "timeout_ms": 600000
+    }
+  }
+}
