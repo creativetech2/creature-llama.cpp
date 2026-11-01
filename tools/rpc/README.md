@@ -208,6 +208,15 @@ Both host ports are opened for the local subnet only. Neither the RPC server nor
 - **Rebuilding the UI.** The first `-BuildUi` build runs `npm ci` and needs internet. A leftover `tools/ui/dist` folder would be embedded instead of a fresh build, so the script stops if it exists.
 - **Speed.** The default layer split pools memory, it does not add speed: tokens pass through the GPUs one after another, and the slowest GPU sets the pace. See `docs/multi-gpu.md` for the split modes.
 
+### MCP tools (ComfyUI)
+
+`start-master.ps1` passes `mcp.json` to `llama-server` (`--mcp-servers-config`, `-McpConfig` to use another file). The shipped file declares the local [Comfy MCP](https://comfy.org/mcp/) (`pip install comfy-mcp`, stdio). Paths in it are for the master, edit them for your machine. The router runs the MCP server itself, so the RPC hosts need no change.
+
+- Set the ComfyUI folder once: `comfy set-default <ComfyUI folder>`.
+- Start ComfyUI yourself (`run_nvidia_gpu.bat` for the portable build), the MCP does not start it reliably.
+- The tools appear as `comfy_*` in the Web UI and at `GET /tools`.
+- ComfyUI shares the master GPU with the model, so VRAM can run out.
+
 ### Using it from Claude Code
 
 `llama-server` serves the Anthropic Messages API (`/v1/messages`), so Claude Code can use the pool. Set the variables in the terminal where you start `claude`, with the model id taken from the Models tab. Not tested in this fork yet.

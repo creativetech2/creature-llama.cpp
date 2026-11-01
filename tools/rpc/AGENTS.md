@@ -20,6 +20,7 @@ Pool GPUs across machines with the ggml RPC backend.
 - `stats-agent.ps1` serves `GET /stats` JSON on port 50053 (nvidia-smi GPUs, CPU, RAM, NIC rates, RPC server state). A background runspace samples every 0.5 s, requests read the latest JSON.
 - `start-master.ps1` starts `llama-server` in router mode: `--models-dir --models-preset models.ini --models-max 1 --rpc <hosts> --metrics`, port 9931. It checks that every host is reachable first.
 - `add-model.ps1` copies or downloads (`curl.exe`) a `.gguf` into the models folder, then calls `GET /models?reload=1`.
+- `mcp.json` declares MCP servers (Comfy MCP, stdio) for `start-master.ps1 -McpConfig`. The router process runs them, children do not. Probed standalone (39 tools); not yet seen through the router.
 - `models.ini` is the router preset file (`[*]` defaults, per-model sections, `alias`, `tensor-split`, `model-draft`).
 - Server side: `tools/server/server-rpc-stats.cpp` implements `GET /rpc/stats`; `common_params::rpc_servers` keeps the raw `--rpc` string (set in `common/arg.cpp`).
 - UI side (`tools/ui`): the Models page adds a Discover Models button that enables the upstream `enableDiscoverModels` and `useHuggingFaceHub` settings (off by default) and opens the Discover view. Routes `src/routes/rpc` and `src/routes/models`, store `src/lib/stores/rpc.svelte.ts`, service `src/lib/services/rpc.service.ts`, components `src/lib/components/app/rpc/`, helpers and tests `src/lib/utils/rpc-stats.ts`, `tests/unit/rpc-stats.test.ts`. The sidebar entries are in `src/lib/constants/ui.constants.ts`.
